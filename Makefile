@@ -1,7 +1,18 @@
-lecteur: arbo clean
-	gcc -c src/audio.c -o obj/audio.o
+server: arbo clean audio
+	gcc -Wall -c src/server.c -o obj/server.o
+	gcc obj/audio.o obj/server.o -o bin/server
+
+client: arbo clean audio
+	gcc -Wall -c src/client.c -o obj/client.o
+	gcc obj/audio.o obj/client.o -o bin/client
+
+lecteur: arbo clean audio
 	gcc -Wall -c src/lecteur.c -o obj/lecteur.o
 	gcc obj/audio.o obj/lecteur.o -o bin/lecteur
+
+audio:
+	gcc -c src/audio.c -o obj/audio.o
+
 
 clean :
 	rm -f bin/*
