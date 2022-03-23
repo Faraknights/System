@@ -23,6 +23,8 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+#include "./struc.h"
+
 int main(int argc, char *argv[])
 {
     int fileDescriptor, erreur;

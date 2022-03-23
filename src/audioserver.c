@@ -23,34 +23,49 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+#include "./struc.h"
+
 int main(int argc, char *argv[])
 {
-    int fileDescriptor, erreur;
-    struct sockaddr_in my_addr, from;
+    printf("Lancement du serveur 👍");
 
+    //vérification des fonctions
+    int fileDescriptor, erreur, port, rec;
+    //addresses
+    struct sockaddr_in my_addr, from;
+    socklen_t flen;
+    //Messages
+    char msgFrom[64], msgTo[tailleMessage];
+
+    //On initialie le son
+    struct audio mySound; 
+    flen = sizeof(struct sockaddr_in);
+    mySound.channels = 0;
+    mySound.sample_size = 0;
+    mySound.sample_rate = 0;
+
+    //création du socket
     fileDescriptor = socket(AF_INET, SOCK_DGRAM, 0);
     if(fileDescriptor == -1 ){
         perror("erreur de création du socket"); 
         return (EXIT_FAILURE);
     } 
 
+    //on initialie l'addresse du serveur
     memset(&my_addr, 0, sizeof(struct sockaddr_in));
-    my_addr.sin_family = AF_INET;
-    my_addr.sin_port = htons(1234);
-    my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    
+    my_addr.sin_family = AF_INET; //udp
+    my_addr.sin_port = htons(1234); //port
+    my_addr.sin_addr.s_addr = htonl(INADDR_ANY); //@ip = ip du serveur
+
+    //On fait une liaison entre le serveur (l'adresse) et le socket
     erreur = bind(fileDescriptor, (struct sockaddr *) &my_addr, sizeof(struct sockaddr_in));
     if (erreur<0) {
         perror("erreur de création du socket"); 
         return (EXIT_FAILURE);
     } 
 
-    char msg[64];
-
-    printf("Lancement du serveur 👍");
     printf("Ecoute...");
     while(true){
-        socklen_t flen = sizeof(struct sockaddr_in);
         int len = recvfrom(fileDescriptor, msg, sizeof(msg), 0, (struct sockaddr*) &from, &flen);
         if (len<0) {
             perror("Le message reçu est incorrecte"); 

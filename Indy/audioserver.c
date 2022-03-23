@@ -77,21 +77,21 @@ music.bytes_read=read(rd,buffer,music.sample_size);
 printf("je lis\n");
 while(music.bytes_read!=0){
 
-music.bytes_read=read(rd,buffer,music.sample_size);
+	music.bytes_read=read(rd,buffer,music.sample_size);
 
-err = sendto(fd, &music, sizeof(music)+1, 0, (struct sockaddr*) &from,sizeof(struct sockaddr_in));
-if(err<0) {perror("erreur de sendTo");}
-
-
-printf("bytes_read %d\n", music.bytes_read);
+	err = sendto(fd, &music, sizeof(music)+1, 0, (struct sockaddr*) &from,sizeof(struct sockaddr_in));
+	if(err<0) {perror("erreur de sendTo");}
 
 
-
-//recvfrom(fd, buffer, sizeof(buffer), 0,(struct sockaddr*) &from, &len);
-//~ rec=recvfrom(fd,&music, sizeof(music)+1, 0, (struct sockaddr*) &from, &flen);
+	printf("bytes_read %d\n", music.bytes_read);
 
 
-if(rec<0) {perror("erreur de recev");}
+
+	//recvfrom(fd, buffer, sizeof(buffer), 0,(struct sockaddr*) &from, &len);
+	//~ rec=recvfrom(fd,&music, sizeof(music)+1, 0, (struct sockaddr*) &from, &flen);
+
+
+	if(rec<0) {perror("erreur de recev");}
 
 }
 
