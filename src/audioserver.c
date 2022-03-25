@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
     //vérification des fonctions
     int fileDescriptor, erreurBind, erreurSendTo;
     //addresses
-    struct sockaddr_in my_addr, from;
+    struct sockaddr_in my_addr, from, activeFrom;
     socklen_t flen = sizeof(struct sockaddr_in);
     //Messages
     char msgFrom[64];
@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
     
     //création du socket
     fileDescriptor = socket(AF_INET, SOCK_DGRAM, 0);
-    if(fileDescriptor == -1 ){
+    if(fileDescriptor == -1){
         perror("erreur de création du socket"); 
         return (EXIT_FAILURE);
     } 
@@ -75,6 +75,10 @@ int main(int argc, char *argv[]) {
             return (EXIT_FAILURE);
         }
 
+        activeFrom = from;
+        printf("%d\n%u\n%d\n", from.sin_family, from.sin_addr.s_addr, from.sin_port);
+        fflush(stdout);
+
         while (true)
         {
             if(access(msgFrom, F_OK) == -1){
@@ -82,7 +86,7 @@ int main(int argc, char *argv[]) {
                 sound.error = 1;
                 memset(sound.errorMessage, 0, sizeof sound.errorMessage);
                 sprintf(sound.errorMessage, "err: Le fichier n'existe pas");
-                erreurSendTo = sendto(fileDescriptor, &msgTo, sizeof(msgTo)+1, 0, (struct sockaddr*) &from, sizeof(struct sockaddr_in));
+                erreurSendTo = sendto(fileDescriptor, &msgTo, sizeof(msgTo)+1, 0, (struct sockaddr*) &activeFrom, sizeof(struct sockaddr_in));
                 break;
             } else {
                 //Si le fichier existe
@@ -90,7 +94,7 @@ int main(int argc, char *argv[]) {
                 sound.error = 0;
 
                 //On envoie la structure du son au client
-                erreurSendTo = sendto(fileDescriptor, &sound, sizeof(sound)+1, 0, (struct sockaddr*) &from, sizeof(struct sockaddr_in));
+                erreurSendTo = sendto(fileDescriptor, &sound, sizeof(sound)+1, 0, (struct sockaddr*) &activeFrom, sizeof(struct sockaddr_in));
                 if(erreurSendTo<0) {
                     perror("erreur de sendTo"); 
                     return (EXIT_FAILURE);
@@ -98,10 +102,30 @@ int main(int argc, char *argv[]) {
             }
 
             //On attend la réponse du client
-            int len = recvfrom(fileDescriptor, &ack, sizeof(ack), 0, (struct sockaddr*) &from, &flen);
-            if (len<0) {
-                perror("Le message reçu est incorrecte"); 
-                return (EXIT_FAILURE);
+            while (true)
+            {
+                int len = recvfrom(fileDescriptor, &ack, sizeof(ack), 0, (struct sockaddr*) &from, &flen);
+                if (len<0) {
+                    perror("Le message reçu est incorrecte"); 
+                    return (EXIT_FAILURE);
+                }
+
+                if(activeFrom.sin_addr.s_addr == from.sin_addr.s_addr && activeFrom.sin_port == from.sin_port){
+                    //Si c'est le bon client
+                    break;
+                } else {
+                    //Si c'est pas le bon client
+                    message error;
+                    error.error = 1;
+                    memset(error.errorMessage, 0, sizeof error.errorMessage);
+                    sprintf(error.errorMessage, "err: Le serveur est occupé\n");
+
+                    erreurSendTo = sendto(fileDescriptor, &error, sizeof(error)+1, 0, (struct sockaddr*) &from, sizeof(struct sockaddr_in));
+                    if(erreurSendTo<0) {
+                        perror("erreur de sendTo"); 
+                        return (EXIT_FAILURE);
+                    }
+                }
             }
             
             do
@@ -111,7 +135,7 @@ int main(int argc, char *argv[]) {
                 msgTo.data = dataMusic;
 
                 //On l'envoi au client
-                erreurSendTo = sendto(fileDescriptor, &msgTo, sizeof(msgTo)+1, 0, (struct sockaddr*) &from, sizeof(struct sockaddr_in));
+                erreurSendTo = sendto(fileDescriptor, &msgTo, sizeof(msgTo)+1, 0, (struct sockaddr*) &activeFrom, sizeof(struct sockaddr_in));
                 if(erreurSendTo<0) {
                     perror("erreur de sendTo"); 
                     return (EXIT_FAILURE);
@@ -119,10 +143,30 @@ int main(int argc, char *argv[]) {
 
                 if(dataMusic != 0){
                     //On attend la fin de la lecture du bout envoyé pour envoyer la suite
-                    int len = recvfrom(fileDescriptor, &ack, sizeof(ack), 0, (struct sockaddr*) &from, &flen);
-                    if (len<0) {
-                        perror("Le message reçu est incorrecte"); 
-                        return (EXIT_FAILURE);
+                    while (true)
+                    {
+                        int len = recvfrom(fileDescriptor, &ack, sizeof(ack), 0, (struct sockaddr*) &from, &flen);
+                        if (len<0) {
+                            perror("Le message reçu est incorrecte"); 
+                            return (EXIT_FAILURE);
+                        }
+
+                        if(activeFrom.sin_addr.s_addr == from.sin_addr.s_addr && activeFrom.sin_port == from.sin_port){
+                            //Si c'est le bon client
+                            break;
+                        } else {
+                            //Si c'est pas le bon client
+                            message error;
+                            error.error = 1;
+                            memset(error.errorMessage, 0, sizeof error.errorMessage);
+                            sprintf(error.errorMessage, "err: Le serveur est occupé\n");
+
+                            erreurSendTo = sendto(fileDescriptor, &error, sizeof(error)+1, 0, (struct sockaddr*) &from, sizeof(struct sockaddr_in));
+                            if(erreurSendTo<0) {
+                                perror("erreur de sendTo"); 
+                                return (EXIT_FAILURE);
+                            }
+                        }
                     }
                 }
             } while (dataMusic != 0);

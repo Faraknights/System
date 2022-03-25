@@ -3,8 +3,9 @@ arbo :
 	[ ! -d "./obj/" ] && mkdir obj || true
 	[ ! -d "./src/" ] && mkdir src || true
 	[ -f "./lecteur.c" ] && mv ./lecteur.c ./src/ || true
-	[ -f "./lecteur.c" ] && mv ./lecteur.c ./src/ || true
-	[ -f "./lecteur.c" ] && mv ./lecteur.c ./src/ || true
+	[ -f "./lecteur.c" ] && mv ./audioclient.c ./src/ || true
+	[ -f "./lecteur.c" ] && mv ./audioserver.c ./src/ || true
+	[ -f "./lecteur.c" ] && mv ./struct.h ./src/ || true
 	[ -f "./audio.c" ] && mv ./audio.c ./src/ || true
 	[ -f "./audio.h" ] && mv ./audio.h ./src/ || true
 	[ -f "./test.wav" ] && mv ./test.wav ./src/ || true
