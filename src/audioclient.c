@@ -36,6 +36,10 @@ int main(int argc, char *argv[])
     char msgTo[64];
     bufferSound msgFrom;
     int ack = 1;
+    //Timeout
+    int nb;
+    fd_set read_set;
+    struct timeval timeout;
 
     //On initialie le son
     int wd;
@@ -62,13 +66,29 @@ int main(int argc, char *argv[])
         perror("erreur de sendTo - 1"); 
         return (EXIT_FAILURE);
     }
-                
-    //On attend la réponse du serveur: le son ou une erreur
-    int len = recvfrom(fileDescriptor, &sound, sizeof(sound), 0, (struct sockaddr*) &from, &flen);
-    if (len<0) {
-        perror("Le message reçu est incorrecte"); 
+
+    FD_ZERO(&read_set);
+    FD_SET(fileDescriptor, &read_set);
+    timeout.tv_sec  = 0;
+    timeout.tv_usec = 500000;
+
+    nb = select(fileDescriptor + 1, &read_set, NULL, NULL, &timeout);
+    if(nb<0){
+        perror("err: select"); 
         return (EXIT_FAILURE);
-    } 
+    }
+    if(nb==0){
+        perror("Délai d'attente dépassé"); 
+        return (EXIT_FAILURE);
+    }
+    if(FD_ISSET(fileDescriptor, &read_set)){           
+        //On attend la réponse du serveur: le son ou une erreur
+        int len = recvfrom(fileDescriptor, &sound, sizeof(sound), 0, (struct sockaddr*) &from, &flen);
+        if (len<0) {
+            perror("Le message reçu est incorrecte"); 
+            return (EXIT_FAILURE);
+        } 
+    }
 
     if(sound.error == 1){
         printf("%s", sound.errorMessage);
@@ -86,11 +106,27 @@ int main(int argc, char *argv[])
                   
     do
     {
-        //On attend la fin de la lecture du bout envoyé pour envoyer la suite
-        int len = recvfrom(fileDescriptor, &msgFrom, sizeof(msgFrom), 0, (struct sockaddr*) &from, &flen);
-        if (len<0) {
-            perror("Le message reçu est incorrecte"); 
+        FD_ZERO(&read_set);
+        FD_SET(fileDescriptor, &read_set);
+        timeout.tv_sec  = 0;
+        timeout.tv_usec = 500000;
+
+        nb = select(fileDescriptor + 1, &read_set, NULL, NULL, &timeout);
+        if(nb<0){
+            perror("err: select"); 
             return (EXIT_FAILURE);
+        }
+        if(nb==0){
+            perror("Délai d'attente dépassé"); 
+            return (EXIT_FAILURE);
+        }
+        if(FD_ISSET(fileDescriptor, &read_set)){   
+            //On attend la fin de la lecture du bout envoyé pour envoyer la suite
+            int len = recvfrom(fileDescriptor, &msgFrom, sizeof(msgFrom), 0, (struct sockaddr*) &from, &flen);
+            if (len<0) {
+                perror("Le message reçu est incorrecte"); 
+                return (EXIT_FAILURE);
+            }
         }
 
         write(wd, msgFrom.buffer, sizeof(msgFrom.buffer));

@@ -37,6 +37,10 @@ int main(int argc, char *argv[]) {
     char msgFrom[64];
     bufferSound msgTo;
     int ack;
+    //Timeout
+    int nb;
+    fd_set read_set;
+    struct timeval timeout;
 
     //On initialie le son
     int rd, dataMusic;
@@ -44,6 +48,9 @@ int main(int argc, char *argv[]) {
     sound.audio.channels = 0;
     sound.audio.sample_size = 0;
     sound.audio.sample_rate = 0;
+
+    //Si le délai d'attente est dépassé
+    int cancel = 0;
     
     //création du socket
     fileDescriptor = socket(AF_INET, SOCK_DGRAM, 0);
@@ -66,8 +73,9 @@ int main(int argc, char *argv[]) {
     } 
     
 
-    printf("Ecoute...");
     while(true){
+        printf("Ecoute...\n");
+        fflush(stdout);
         //On attend de recevoir un message d'un client avec le nom d'une music
         int len = recvfrom(fileDescriptor, msgFrom, sizeof(msgFrom), 0, (struct sockaddr*) &from, &flen);
         if (len<0) {
@@ -76,8 +84,6 @@ int main(int argc, char *argv[]) {
         }
 
         activeFrom = from;
-        printf("%d\n%u\n%d\n", from.sin_family, from.sin_addr.s_addr, from.sin_port);
-        fflush(stdout);
 
         while (true)
         {
@@ -101,29 +107,44 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            //On attend la réponse du client
-            while (true)
-            {
-                int len = recvfrom(fileDescriptor, &ack, sizeof(ack), 0, (struct sockaddr*) &from, &flen);
-                if (len<0) {
-                    perror("Le message reçu est incorrecte"); 
-                    return (EXIT_FAILURE);
-                }
+            FD_ZERO(&read_set);
+            FD_SET(fileDescriptor, &read_set);
+            timeout.tv_sec  = 0;
+            timeout.tv_usec = 500000;
 
-                if(activeFrom.sin_addr.s_addr == from.sin_addr.s_addr && activeFrom.sin_port == from.sin_port){
-                    //Si c'est le bon client
-                    break;
-                } else {
-                    //Si c'est pas le bon client
-                    message error;
-                    error.error = 1;
-                    memset(error.errorMessage, 0, sizeof error.errorMessage);
-                    sprintf(error.errorMessage, "err: Le serveur est occupé\n");
-
-                    erreurSendTo = sendto(fileDescriptor, &error, sizeof(error)+1, 0, (struct sockaddr*) &from, sizeof(struct sockaddr_in));
-                    if(erreurSendTo<0) {
-                        perror("erreur de sendTo"); 
+            nb = select(fileDescriptor + 1, &read_set, NULL, NULL, &timeout);
+            if(nb<0){
+                perror("err: select"); 
+                return (EXIT_FAILURE);
+            }
+            if(nb==0){
+                break;
+            }
+            if(FD_ISSET(fileDescriptor, &read_set)){
+                //On attend la réponse du client
+                while (true)
+                {
+                    int len = recvfrom(fileDescriptor, &ack, sizeof(ack), 0, (struct sockaddr*) &from, &flen);
+                    if (len<0) {
+                        perror("Le message reçu est incorrecte"); 
                         return (EXIT_FAILURE);
+                    }
+
+                    if(activeFrom.sin_addr.s_addr == from.sin_addr.s_addr && activeFrom.sin_port == from.sin_port){
+                        //Si c'est le bon client
+                        break;
+                    } else {
+                        //Si c'est pas le bon client
+                        message error;
+                        error.error = 1;
+                        memset(error.errorMessage, 0, sizeof error.errorMessage);
+                        sprintf(error.errorMessage, "err: Le serveur est occupé\n");
+
+                        erreurSendTo = sendto(fileDescriptor, &error, sizeof(error)+1, 0, (struct sockaddr*) &from, sizeof(struct sockaddr_in));
+                        if(erreurSendTo<0) {
+                            perror("erreur de sendTo"); 
+                            return (EXIT_FAILURE);
+                        }
                     }
                 }
             }
@@ -142,34 +163,54 @@ int main(int argc, char *argv[]) {
                 }
 
                 if(dataMusic != 0){
-                    //On attend la fin de la lecture du bout envoyé pour envoyer la suite
-                    while (true)
-                    {
-                        int len = recvfrom(fileDescriptor, &ack, sizeof(ack), 0, (struct sockaddr*) &from, &flen);
-                        if (len<0) {
-                            perror("Le message reçu est incorrecte"); 
-                            return (EXIT_FAILURE);
-                        }
+                    FD_ZERO(&read_set);
+                    FD_SET(fileDescriptor, &read_set);
+                    timeout.tv_sec  = 0;
+                    timeout.tv_usec = 500000;
 
-                        if(activeFrom.sin_addr.s_addr == from.sin_addr.s_addr && activeFrom.sin_port == from.sin_port){
-                            //Si c'est le bon client
-                            break;
-                        } else {
-                            //Si c'est pas le bon client
-                            message error;
-                            error.error = 1;
-                            memset(error.errorMessage, 0, sizeof error.errorMessage);
-                            sprintf(error.errorMessage, "err: Le serveur est occupé\n");
-
-                            erreurSendTo = sendto(fileDescriptor, &error, sizeof(error)+1, 0, (struct sockaddr*) &from, sizeof(struct sockaddr_in));
-                            if(erreurSendTo<0) {
-                                perror("erreur de sendTo"); 
+                    nb = select(fileDescriptor + 1, &read_set, NULL, NULL, &timeout);
+                    if(nb<0){
+                        perror("err: select"); 
+                        return (EXIT_FAILURE);
+                    }
+                    if(nb==0){
+                        cancel = 1;
+                        break;
+                    }
+                    if(FD_ISSET(fileDescriptor, &read_set)){
+                        //On attend la fin de la lecture du bout envoyé pour envoyer la suite
+                        while (true)
+                        {
+                            int len = recvfrom(fileDescriptor, &ack, sizeof(ack), 0, (struct sockaddr*) &from, &flen);
+                            if (len<0) {
+                                perror("Le message reçu est incorrecte"); 
                                 return (EXIT_FAILURE);
+                            }
+
+                            if(activeFrom.sin_addr.s_addr == from.sin_addr.s_addr && activeFrom.sin_port == from.sin_port){
+                                //Si c'est le bon client
+                                break;
+                            } else {
+                                //Si c'est pas le bon client
+                                message error;
+                                error.error = 1;
+                                memset(error.errorMessage, 0, sizeof error.errorMessage);
+                                sprintf(error.errorMessage, "err: Le serveur est occupé\n");
+
+                                erreurSendTo = sendto(fileDescriptor, &error, sizeof(error)+1, 0, (struct sockaddr*) &from, sizeof(struct sockaddr_in));
+                                if(erreurSendTo<0) {
+                                    perror("erreur de sendTo"); 
+                                    return (EXIT_FAILURE);
+                                }
                             }
                         }
                     }
                 }
             } while (dataMusic != 0);
+            if(cancel == 1){
+                cancel = 0;
+                break;
+            }
         }
     }  
 
