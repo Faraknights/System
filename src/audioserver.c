@@ -26,7 +26,8 @@
 #include "./struc.h"
 
 int main(int argc, char *argv[]) {
-    
+    printf("Lancement du serveur\n");
+    fflush(stdout);
     //vérification des fonctions
     int fileDescriptor, erreurBind, erreurSendTo;
     //addresses
@@ -34,12 +35,12 @@ int main(int argc, char *argv[]) {
     socklen_t flen = sizeof(struct sockaddr_in);
     //Messages
     char msgFrom[64];
-    struct bufferSound msgTo;
+    bufferSound msgTo;
     int ack;
 
     //On initialie le son
     int rd, dataMusic;
-    struct message sound;
+    message sound;
     sound.audio.channels = 0;
     sound.audio.sample_size = 0;
     sound.audio.sample_rate = 0;

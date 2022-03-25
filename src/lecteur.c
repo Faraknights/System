@@ -35,7 +35,8 @@ int main(int argc, char *argv[])
 
     do{
         write(desc_write, buffer, sizeof(buffer));
-        data = read(desc_read, buffer, sizeof(buffer));
+       
+       
     } while (data != 0);
 
     return 0;

@@ -31,15 +31,15 @@ int main(int argc, char *argv[])
     int fileDescriptor, erreurSendTo;
     //addresses
     struct sockaddr_in dest, from;
-    socklen_t flen;
+    socklen_t flen = sizeof(struct sockaddr_in);
     //Messages
     char msgTo[64];
-    struct bufferSound msgFrom;
+    bufferSound msgFrom;
     int ack = 1;
 
     //On initialie le son
-    int wd, dataMusic;
-    struct message sound;
+    int wd;
+    message sound;
 
     //création du socket
     fileDescriptor = socket(AF_INET, SOCK_DGRAM, 0);
@@ -52,13 +52,14 @@ int main(int argc, char *argv[])
     memset(&dest, 0, sizeof(struct sockaddr_in));
     dest.sin_family = AF_INET;
     dest.sin_port = htons(1234);
-    dest.sin_addr.s_addr = inet_addr("127.0.0.1");
+    dest.sin_addr.s_addr = inet_addr(argv[1]);
 
     //On envoi le nom de la musique
-    *msgTo = argv[2];
-    erreurSendTo = sendto(fileDescriptor, msgTo, strlen(msgTo)+1, 0, (struct sockaddr*) &dest, flen);
+    memset(msgTo, 0, sizeof msgTo);
+    strcpy(msgTo, argv[2]);
+    erreurSendTo = sendto(fileDescriptor, msgTo, 64, 0, (struct sockaddr*) &dest, flen);
     if(erreurSendTo<0) {
-        perror("erreur de sendTo"); 
+        perror("erreur de sendTo - 1"); 
         return (EXIT_FAILURE);
     }
                 
@@ -70,16 +71,16 @@ int main(int argc, char *argv[])
     } 
 
     if(sound.error == 1){
-        printf(sound.errorMessage);
+        printf("%s", sound.errorMessage);
         return EXIT_FAILURE;
     } 
 
-    int wd = aud_writeinit(sound.audio.sample_rate, sound.audio.sample_size, sound.audio.channels);
+    wd = aud_writeinit(sound.audio.sample_rate, sound.audio.sample_size, sound.audio.channels);
 
 
     erreurSendTo = sendto(fileDescriptor, &ack, sizeof(ack)+1, 0, (struct sockaddr*) &from, sizeof(struct sockaddr_in));
     if(erreurSendTo<0) {
-        perror("erreur de sendTo"); 
+        perror("erreur de sendTo - 2"); 
         return (EXIT_FAILURE);
     }
                   
@@ -96,7 +97,7 @@ int main(int argc, char *argv[])
 
         erreurSendTo = sendto(fileDescriptor, &ack, sizeof(ack)+1, 0, (struct sockaddr*) &from, sizeof(struct sockaddr_in));
         if(erreurSendTo<0) {
-            perror("erreur de sendTo"); 
+            perror("erreur de sendTo - 3"); 
             return (EXIT_FAILURE);
         }
                 

@@ -6,17 +6,17 @@ typedef struct audio{
 		int sample_rate;
 		int sample_size;
 		int channels;
-};
+} audio;
 
 typedef struct message{
-		struct audio audio;
+		audio audio;
 		int error;
 		char errorMessage[128];
-};
+} message;
 
 typedef struct bufferSound{
 	char buffer[1024];
 	int data;
-};
+} bufferSound;
 
 #endif /* #ifndef __include_fichier_h__ */
