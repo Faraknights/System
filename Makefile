@@ -1,10 +1,10 @@
 server: arbo clean audio
-	gcc -Wall -c src/server.c -o obj/server.o
+	gcc -Wall -c src/audioserver.c -o obj/server.o
 	gcc obj/audio.o obj/server.o -o bin/server
 
 client: arbo clean audio
-	gcc -Wall -c src/client.c -o obj/client.o
-	gcc obj/audio.o obj/client.o -o bin/client
+	gcc -Wall -c src/audioclient.c -o obj/client.o
+	gcc obj/audio.o obj/audioclient.o -o bin/client
 
 lecteur: arbo clean audio
 	gcc -Wall -c src/lecteur.c -o obj/lecteur.o

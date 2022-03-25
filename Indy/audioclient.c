@@ -63,19 +63,19 @@ int buffer[music.sample_size];
 
 while(music.bytes_write!=0){
 
-len = recvfrom(fd, &music, sizeof(music), 0,(struct sockaddr*) &from, &len);
+	len = recvfrom(fd, &music, sizeof(music), 0,(struct sockaddr*) &from, &len);
 
-if (len<0) { perror("erreur de len"); }
+	if (len<0) { perror("erreur de len"); }
 
-printf("Received struct music with sample %d  sample_size %d and channel %d, bytes_writes %d\n", music.sample_rate, music.sample_size, music.channels,music.bytes_write);
+	printf("Received struct music with sample %d  sample_size %d and channel %d, bytes_writes %d\n", music.sample_rate, music.sample_size, music.channels,music.bytes_write);
 
-music.bytes_write=write(wr,buffer,sizeof(music));
-
-
+	music.bytes_write=write(wr,buffer,sizeof(music));
 
 
-//err=sendto(fd, buffer, sizeof(buffer), 0, (struct sockaddr*) &dest,sizeof(struct sockaddr_in));
-if (err<0) { perror("erreur de len"); }
+
+
+	//err=sendto(fd, buffer, sizeof(buffer), 0, (struct sockaddr*) &dest,sizeof(struct sockaddr_in));
+	if (err<0) { perror("erreur de len"); }
 
 }
 
