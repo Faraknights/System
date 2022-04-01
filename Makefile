@@ -1,3 +1,5 @@
+all: arbo clean audio bin_server bin_client
+
 arbo : 
 	[ ! -d "./bin/" ] && mkdir bin || true
 	[ ! -d "./obj/" ] && mkdir obj || true
@@ -18,15 +20,19 @@ clean:
 	rm -f bin/*
 	rm -f obj/*
 
-server:
-	gcc -Wall -c src/audioserver.c -o obj/server.o
-	gcc obj/audio.o obj/server.o -o bin/server
+bin_server:
+	gcc -Wall -c src/audioserver.c -o obj/audioserver.o
+	gcc obj/audio.o obj/audioserver.o -o bin/audioserver
 
-client:
-	gcc -Wall -c src/audioclient.c -o obj/client.o
-	gcc obj/audio.o obj/client.o -o bin/client
+server: 
+	./bin/audioserver
 
-client_server: arbo clean audio server client
+client: 
+	padsp ./bin/audioclient 127.0.0.1 ./src/ponce.wav
+
+bin_client:
+	gcc -Wall -c src/audioclient.c -o obj/audioclient.o
+	gcc obj/audio.o obj/audioclient.o -o bin/audioclient
 
 lecteur: arbo clean audio
 	gcc -Wall -c src/lecteur.c -o obj/lecteur.o
