@@ -34,8 +34,8 @@ int main(int argc, char *argv[]) {
     struct sockaddr_in my_addr, from, activeFrom;
     socklen_t flen = sizeof(struct sockaddr_in);
     //Messages
-    char msgFrom[64];
-    bufferSound msgTo;
+    firstMessage msgFrom;
+	char buffer[bufferSize];
     int ack;
     //Timeout
     int nb;
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
     //on initialie l'addresse du serveur
     memset(&my_addr, 0, sizeof(struct sockaddr_in));
     my_addr.sin_family = AF_INET; //udp
-    my_addr.sin_port = htons(1234); //port
+    my_addr.sin_port = htons(1235); //port
     my_addr.sin_addr.s_addr = htonl(INADDR_ANY); //@ip = ip du serveur
 
     //On fait une liaison entre le serveur (l'adresse) et le socket
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
         printf("Ecoute...\n");
         fflush(stdout);
         //On attend de recevoir un message d'un client avec le nom d'une music
-        int len = recvfrom(fileDescriptor, msgFrom, sizeof(msgFrom), 0, (struct sockaddr*) &from, &flen);
+        int len = recvfrom(fileDescriptor, &msgFrom, sizeof(msgFrom), 0, (struct sockaddr*) &from, &flen);
         if (len<0) {
             perror("Le message reçu est incorrecte"); 
             return (EXIT_FAILURE);
@@ -87,16 +87,16 @@ int main(int argc, char *argv[]) {
 
         while (true)
         {
-            if(access(msgFrom, F_OK) == -1){
+            if(access(msgFrom.fileName, F_OK) == -1){
                 //Si le fichier n'existe pas
                 sound.error = 1;
                 memset(sound.errorMessage, 0, sizeof sound.errorMessage);
                 sprintf(sound.errorMessage, "err: Le fichier n'existe pas");
-                erreurSendTo = sendto(fileDescriptor, &msgTo, sizeof(msgTo)+1, 0, (struct sockaddr*) &activeFrom, sizeof(struct sockaddr_in));
+                erreurSendTo = sendto(fileDescriptor, &buffer, sizeof(buffer)+1, 0, (struct sockaddr*) &activeFrom, sizeof(struct sockaddr_in));
                 break;
             } else {
                 //Si le fichier existe
-                rd = aud_readinit(msgFrom, &sound.audio.sample_rate, &sound.audio.sample_size, &sound.audio.channels);
+                rd = aud_readinit(msgFrom.fileName, &sound.audio.sample_rate, &sound.audio.sample_size, &sound.audio.channels);
                 sound.error = 0;
 
                 //On envoie la structure du son au client
@@ -152,15 +152,79 @@ int main(int argc, char *argv[]) {
             do
             {
                 //On lit un bout du fichier
-                dataMusic = read(rd, msgTo.buffer, sizeof(msgTo));
-                msgTo.data = dataMusic;
+                dataMusic = read(rd, buffer, sizeof(buffer));
 
-                //On l'envoi au client
-                erreurSendTo = sendto(fileDescriptor, &msgTo, sizeof(msgTo)+1, 0, (struct sockaddr*) &activeFrom, sizeof(struct sockaddr_in));
-                if(erreurSendTo<0) {
-                    perror("erreur de sendTo"); 
-                    return (EXIT_FAILURE);
+                if(msgFrom.volume == 1){
+                    for (size_t i = 0; i < (bufferSize); i++){
+                        int16_t tmp = 0;
+                        if(sound.audio.sample_size == 16){
+                            tmp = buffer[i++] & 0x00FF;
+                            if (i < bufferSize) {
+                                tmp |= ((int16_t) buffer[i] << 8);
+                            }
+                        } else {
+                            tmp = buffer[i];
+                        }
+                        tmp *= msgFrom.volumeData;
+                        if(sound.audio.sample_size == 16){
+                            buffer[i] = (tmp >> 8) & 0x00FF;
+                            buffer[i - 1] = tmp & 0x00FF;
+                        } else {
+                            buffer[i] = tmp;
+                        }
+                    }
+                } 
+
+                if(msgFrom.mono == 1 && sound.audio.channels == 2){  
+	                char newBuffer[bufferSize / 2];
+                    int iNewBuffer = 0;
+                    for (size_t i = 0; i < (bufferSize); i++){
+                        int16_t left = 0; int16_t right = 0; int16_t moyenne = 0 ;
+                        //On récupère le son gauche
+                        if(sound.audio.sample_size == 16){
+                            left = buffer[i++] & 0x00FF;
+                            if (i < bufferSize) {
+                                left |= ((int16_t) buffer[i++] << 8);
+                            }
+                        } else {
+                            left = buffer[i++];
+                        }
+                        //On récupère le son droit
+                        if(sound.audio.sample_size == 16){
+                            right = buffer[i++] & 0x00FF;
+                            if (i < bufferSize) {
+                                left |= ((int16_t) buffer[i] << 8);
+                            }
+                        } else {
+                            left = buffer[i];
+                        }
+                        //on fait la moyenne
+                        moyenne = (left + right) / 2;
+
+                        //On met le resultat dans un nouveau Buffer
+                        if(sound.audio.sample_size == 16){
+                            newBuffer[iNewBuffer++] = moyenne & 0x00FF;
+                            newBuffer[iNewBuffer++] = (moyenne >> 8) & 0x00FF;
+                        } else {
+                            newBuffer[iNewBuffer++] = moyenne;
+                        }
+                    }
+
+                    //On l'envoi au client
+                    erreurSendTo = sendto(fileDescriptor, &newBuffer, sizeof(newBuffer)+1, 0, (struct sockaddr*) &activeFrom, sizeof(struct sockaddr_in));
+                    if(erreurSendTo<0) {
+                        perror("erreur de sendTo"); 
+                        return (EXIT_FAILURE);
+                    }
+                } else {
+                    //On l'envoi au client
+                    erreurSendTo = sendto(fileDescriptor, &buffer, sizeof(buffer)+1, 0, (struct sockaddr*) &activeFrom, sizeof(struct sockaddr_in));
+                    if(erreurSendTo<0) {
+                        perror("erreur de sendTo"); 
+                        return (EXIT_FAILURE);
+                    }
                 }
+
 
                 if(dataMusic != 0){
                     FD_ZERO(&read_set);

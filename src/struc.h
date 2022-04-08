@@ -1,5 +1,14 @@
 #ifndef __include_structures_h__
+#define bufferSize 1024
 #define __include_structures_h__
+
+//Premier message
+typedef struct firstMessage{
+		char fileName[64];
+		int mono;
+		int volume;
+		double volumeData;
+} firstMessage;
 
 //format de son
 typedef struct audio{
@@ -13,10 +22,5 @@ typedef struct message{
 		int error;
 		char errorMessage[128];
 } message;
-
-typedef struct bufferSound{
-	char buffer[1024];
-	int data;
-} bufferSound;
 
 #endif /* #ifndef __include_fichier_h__ */

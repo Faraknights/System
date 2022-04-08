@@ -24,6 +24,7 @@
 #include <arpa/inet.h>
 
 #include "./struc.h"
+#include "ctype.h"
 
 int main(int argc, char *argv[])
 {
@@ -33,8 +34,9 @@ int main(int argc, char *argv[])
     struct sockaddr_in dest, from;
     socklen_t flen = sizeof(struct sockaddr_in);
     //Messages
-    char msgTo[64];
-    bufferSound msgFrom;
+    firstMessage msgTo;
+	char buffer[bufferSize];
+	char bufferMono[bufferSize/2];
     int ack = 1;
     //Timeout
     int nb;
@@ -44,6 +46,9 @@ int main(int argc, char *argv[])
     //On initialie le son
     int wd;
     message sound;
+
+    int counterParam = 3;
+    msgTo.volume = 0; msgTo.volumeData = 1.0;
 
     //création du socket
     fileDescriptor = socket(AF_INET, SOCK_DGRAM, 0);
@@ -55,13 +60,36 @@ int main(int argc, char *argv[])
     //on initialie l'addresse du serveur
     memset(&dest, 0, sizeof(struct sockaddr_in));
     dest.sin_family = AF_INET;
-    dest.sin_port = htons(1234);
+    dest.sin_port = htons(1235);
     dest.sin_addr.s_addr = inet_addr(argv[1]);
 
+    while (counterParam < argc){
+        if(strcmp(argv[counterParam], "volume") == 0){
+            if(counterParam + 1 == argc){
+                perror("Le parametre du volume est manquant | format: [xx](\%)"); 
+                return (EXIT_FAILURE);
+            } else if(!isdigit(*argv[counterParam + 1])){
+                perror("Le format attendu du parametre volume est un nombre décimal positif"); 
+                return (EXIT_FAILURE);
+            }
+            printf("volume : %s%%\n", argv[counterParam + 1]);
+            fflush(stdout);
+            msgTo.volume = 1;
+            msgTo.volumeData = atof(argv[counterParam + 1]) / 100.0f;
+            counterParam+=2;
+        } else if(strcmp(argv[counterParam], "mono") == 0){
+            msgTo.mono = 1;
+            counterParam++;
+        } else {
+            perror("Parametre non pris en charge"); 
+            return (EXIT_FAILURE);
+        }
+    }
+
     //On envoi le nom de la musique
-    memset(msgTo, 0, sizeof msgTo);
-    strcpy(msgTo, argv[2]);
-    erreurSendTo = sendto(fileDescriptor, msgTo, 64, 0, (struct sockaddr*) &dest, flen);
+    memset(msgTo.fileName, 0, sizeof msgTo.fileName);
+    strcpy(msgTo.fileName, argv[2]);
+    erreurSendTo = sendto(fileDescriptor, &msgTo, sizeof(msgTo), 0, (struct sockaddr*) &dest, flen);
     if(erreurSendTo<0) {
         perror("erreur de sendTo - 1"); 
         return (EXIT_FAILURE);
@@ -95,6 +123,11 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     } 
 
+    if(msgTo.mono == 1){
+        sound.audio.channels = 1;
+    }
+
+    printf("%d", sound.audio.channels);
     wd = aud_writeinit(sound.audio.sample_rate, sound.audio.sample_size, sound.audio.channels);
 
 
@@ -104,8 +137,7 @@ int main(int argc, char *argv[])
         return (EXIT_FAILURE);
     }
                   
-    do
-    {
+    while (true){
         FD_ZERO(&read_set);
         FD_SET(fileDescriptor, &read_set);
         timeout.tv_sec  = 0;
@@ -120,16 +152,30 @@ int main(int argc, char *argv[])
             perror("Délai d'attente dépassé"); 
             return (EXIT_FAILURE);
         }
-        if(FD_ISSET(fileDescriptor, &read_set)){   
-            //On attend la fin de la lecture du bout envoyé pour envoyer la suite
-            int len = recvfrom(fileDescriptor, &msgFrom, sizeof(msgFrom), 0, (struct sockaddr*) &from, &flen);
-            if (len<0) {
-                perror("Le message reçu est incorrecte"); 
-                return (EXIT_FAILURE);
-            }
-        }
 
-        write(wd, msgFrom.buffer, sizeof(msgFrom.buffer));
+        if(msgTo.mono == 1){
+            if(FD_ISSET(fileDescriptor, &read_set)){   
+                //On attend la fin de la lecture du bout envoyé pour envoyer la suite
+                int len = recvfrom(fileDescriptor, bufferMono, sizeof(bufferMono), 0, (struct sockaddr*) &from, &flen);
+                if (len<0) {
+                    perror("Le message reçu est incorrecte"); 
+                    return (EXIT_FAILURE);
+                }
+            }
+
+            write(wd, bufferMono, sizeof(bufferMono));
+        } else {
+            if(FD_ISSET(fileDescriptor, &read_set)){   
+                //On attend la fin de la lecture du bout envoyé pour envoyer la suite
+                int len = recvfrom(fileDescriptor, buffer, sizeof(buffer), 0, (struct sockaddr*) &from, &flen);
+                if (len<0) {
+                    perror("Le message reçu est incorrecte"); 
+                    return (EXIT_FAILURE);
+                }
+            }
+
+            write(wd, buffer, sizeof(buffer));
+        }
 
         erreurSendTo = sendto(fileDescriptor, &ack, sizeof(ack)+1, 0, (struct sockaddr*) &from, sizeof(struct sockaddr_in));
         if(erreurSendTo<0) {
@@ -137,7 +183,7 @@ int main(int argc, char *argv[])
             return (EXIT_FAILURE);
         }
                 
-    } while (msgFrom.data != 0);
+    };
 
     close(fileDescriptor);
 }
