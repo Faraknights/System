@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
     socklen_t flen = sizeof(struct sockaddr_in);
     //Messages
     firstMessage msgFrom;
-	char buffer[bufferSize];
+    bufferSound bufferMessage;
     int ack;
     //Timeout
     int nb;
@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
     struct timeval timeout;
 
     //On initialie le son
-    int rd, dataMusic;
+    int rd;
     message sound;
     sound.audio.channels = 0;
     sound.audio.sample_size = 0;
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
                 sound.error = 1;
                 memset(sound.errorMessage, 0, sizeof sound.errorMessage);
                 sprintf(sound.errorMessage, "err: Le fichier n'existe pas");
-                erreurSendTo = sendto(fileDescriptor, &buffer, sizeof(buffer)+1, 0, (struct sockaddr*) &activeFrom, sizeof(struct sockaddr_in));
+                erreurSendTo = sendto(fileDescriptor, &bufferMessage.buffer, sizeof(bufferMessage.buffer)+1, 0, (struct sockaddr*) &activeFrom, sizeof(struct sockaddr_in));
                 break;
             } else {
                 //Si le fichier existe
@@ -152,81 +152,73 @@ int main(int argc, char *argv[]) {
             do
             {
                 //On lit un bout du fichier
-                dataMusic = read(rd, buffer, sizeof(buffer));
+                bufferMessage.data = read(rd, bufferMessage.buffer, sizeof(bufferMessage.buffer));
 
                 if(msgFrom.volume == 1){
                     for (size_t i = 0; i < (bufferSize); i++){
                         int16_t tmp = 0;
                         if(sound.audio.sample_size == 16){
-                            tmp = buffer[i++] & 0x00FF;
+                            tmp = bufferMessage.buffer[i++] & 0x00FF;
                             if (i < bufferSize) {
-                                tmp |= ((int16_t) buffer[i] << 8);
+                                tmp |= ((int16_t) bufferMessage.buffer[i] << 8);
                             }
                         } else {
-                            tmp = buffer[i];
+                            tmp = bufferMessage.buffer[i];
                         }
                         tmp *= msgFrom.volumeData;
                         if(sound.audio.sample_size == 16){
-                            buffer[i] = (tmp >> 8) & 0x00FF;
-                            buffer[i - 1] = tmp & 0x00FF;
+                            bufferMessage.buffer[i] = (tmp >> 8) & 0x00FF;
+                            bufferMessage.buffer[i - 1] = tmp & 0x00FF;
                         } else {
-                            buffer[i] = tmp;
+                            bufferMessage.buffer[i] = tmp;
                         }
                     }
                 } 
 
-                if(msgFrom.mono == 1 && sound.audio.channels == 2){  
-	                char newBuffer[bufferSize / 2];
+                if(msgFrom.mono == 1 && sound.audio.channels == 2){ 
                     int iNewBuffer = 0;
                     for (size_t i = 0; i < (bufferSize); i++){
                         int16_t left = 0; int16_t right = 0; int16_t moyenne = 0 ;
                         //On récupère le son gauche
                         if(sound.audio.sample_size == 16){
-                            left = buffer[i++] & 0x00FF;
+                            left = bufferMessage.buffer[i++] & 0x00FF;
                             if (i < bufferSize) {
-                                left |= ((int16_t) buffer[i++] << 8);
+                                left |= ((int16_t) bufferMessage.buffer[i++] << 8);
                             }
                         } else {
-                            left = buffer[i++];
+                            left = bufferMessage.buffer[i++];
                         }
                         //On récupère le son droit
                         if(sound.audio.sample_size == 16){
-                            right = buffer[i++] & 0x00FF;
+                            right = bufferMessage.buffer[i++] & 0x00FF;
                             if (i < bufferSize) {
-                                left |= ((int16_t) buffer[i] << 8);
+                                left |= ((int16_t) bufferMessage.buffer[i] << 8);
                             }
                         } else {
-                            left = buffer[i];
+                            left = bufferMessage.buffer[i];
                         }
                         //on fait la moyenne
                         moyenne = (left + right) / 2;
 
                         //On met le resultat dans un nouveau Buffer
                         if(sound.audio.sample_size == 16){
-                            newBuffer[iNewBuffer++] = moyenne & 0x00FF;
-                            newBuffer[iNewBuffer++] = (moyenne >> 8) & 0x00FF;
+                            bufferMessage.bufferMono[iNewBuffer++] = moyenne & 0x00FF;
+                            bufferMessage.bufferMono[iNewBuffer++] = (moyenne >> 8) & 0x00FF;
                         } else {
-                            newBuffer[iNewBuffer++] = moyenne;
+                            bufferMessage.bufferMono[iNewBuffer++] = moyenne;
                         }
                     }
+                } 
 
-                    //On l'envoi au client
-                    erreurSendTo = sendto(fileDescriptor, &newBuffer, sizeof(newBuffer)+1, 0, (struct sockaddr*) &activeFrom, sizeof(struct sockaddr_in));
-                    if(erreurSendTo<0) {
-                        perror("erreur de sendTo"); 
-                        return (EXIT_FAILURE);
-                    }
-                } else {
-                    //On l'envoi au client
-                    erreurSendTo = sendto(fileDescriptor, &buffer, sizeof(buffer)+1, 0, (struct sockaddr*) &activeFrom, sizeof(struct sockaddr_in));
-                    if(erreurSendTo<0) {
-                        perror("erreur de sendTo"); 
-                        return (EXIT_FAILURE);
-                    }
+                //On l'envoi au client
+                erreurSendTo = sendto(fileDescriptor, &bufferMessage, sizeof(bufferMessage)+1, 0, (struct sockaddr*) &activeFrom, sizeof(struct sockaddr_in));
+                if(erreurSendTo<0) {
+                    perror("erreur de sendTo"); 
+                    return (EXIT_FAILURE);
                 }
 
 
-                if(dataMusic != 0){
+                if(bufferMessage.data != 0){
                     FD_ZERO(&read_set);
                     FD_SET(fileDescriptor, &read_set);
                     timeout.tv_sec  = 0;
@@ -270,7 +262,7 @@ int main(int argc, char *argv[]) {
                         }
                     }
                 }
-            } while (dataMusic != 0);
+            } while (bufferMessage.data != 0);
             if(cancel == 1){
                 cancel = 0;
                 break;

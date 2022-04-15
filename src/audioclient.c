@@ -35,8 +35,7 @@ int main(int argc, char *argv[])
     socklen_t flen = sizeof(struct sockaddr_in);
     //Messages
     firstMessage msgTo;
-	char buffer[bufferSize];
-	char bufferMono[bufferSize/2];
+	bufferSound bufferMessage;
     int ack = 1;
     //Timeout
     int nb;
@@ -49,6 +48,7 @@ int main(int argc, char *argv[])
 
     int counterParam = 3;
     msgTo.volume = 0; msgTo.volumeData = 1.0;
+    int echo; int echoTimer = 0;
 
     //création du socket
     fileDescriptor = socket(AF_INET, SOCK_DGRAM, 0);
@@ -153,28 +153,19 @@ int main(int argc, char *argv[])
             return (EXIT_FAILURE);
         }
 
+        if(FD_ISSET(fileDescriptor, &read_set)){   
+            //On attend la fin de la lecture du bout envoyé pour envoyer la suite
+            int len = recvfrom(fileDescriptor, &bufferMessage, sizeof(bufferMessage), 0, (struct sockaddr*) &from, &flen);
+            if (len<0) {
+                perror("Le message reçu est incorrecte"); 
+                return (EXIT_FAILURE);
+            }
+        }
+
         if(msgTo.mono == 1){
-            if(FD_ISSET(fileDescriptor, &read_set)){   
-                //On attend la fin de la lecture du bout envoyé pour envoyer la suite
-                int len = recvfrom(fileDescriptor, bufferMono, sizeof(bufferMono), 0, (struct sockaddr*) &from, &flen);
-                if (len<0) {
-                    perror("Le message reçu est incorrecte"); 
-                    return (EXIT_FAILURE);
-                }
-            }
-
-            write(wd, bufferMono, sizeof(bufferMono));
+            write(wd, bufferMessage.bufferMono, sizeof(bufferMessage.bufferMono));
         } else {
-            if(FD_ISSET(fileDescriptor, &read_set)){   
-                //On attend la fin de la lecture du bout envoyé pour envoyer la suite
-                int len = recvfrom(fileDescriptor, buffer, sizeof(buffer), 0, (struct sockaddr*) &from, &flen);
-                if (len<0) {
-                    perror("Le message reçu est incorrecte"); 
-                    return (EXIT_FAILURE);
-                }
-            }
-
-            write(wd, buffer, sizeof(buffer));
+            write(wd, bufferMessage.buffer, sizeof(bufferMessage.buffer));
         }
 
         erreurSendTo = sendto(fileDescriptor, &ack, sizeof(ack)+1, 0, (struct sockaddr*) &from, sizeof(struct sockaddr_in));
@@ -182,7 +173,10 @@ int main(int argc, char *argv[])
             perror("erreur de sendTo - 3"); 
             return (EXIT_FAILURE);
         }
-                
+
+        if(bufferMessage.data == 0){
+            break;
+        } 
     };
 
     close(fileDescriptor);
