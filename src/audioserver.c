@@ -110,7 +110,7 @@ int main(int argc, char *argv[]) {
             FD_ZERO(&read_set);
             FD_SET(fileDescriptor, &read_set);
             timeout.tv_sec  = 0;
-            timeout.tv_usec = 500000;
+            timeout.tv_usec = 2000000;
 
             nb = select(fileDescriptor + 1, &read_set, NULL, NULL, &timeout);
             if(nb<0){
@@ -222,7 +222,7 @@ int main(int argc, char *argv[]) {
                     FD_ZERO(&read_set);
                     FD_SET(fileDescriptor, &read_set);
                     timeout.tv_sec  = 0;
-                    timeout.tv_usec = 500000;
+                    timeout.tv_usec = 2000000;
 
                     nb = select(fileDescriptor + 1, &read_set, NULL, NULL, &timeout);
                     if(nb<0){

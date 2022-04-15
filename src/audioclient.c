@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 
     int counterParam = 3;
     msgTo.volume = 0; msgTo.volumeData = 1.0;
-    int echo; int echoTimer = 0;
+    double speed = 1.0;
 
     //création du socket
     fileDescriptor = socket(AF_INET, SOCK_DGRAM, 0);
@@ -77,6 +77,18 @@ int main(int argc, char *argv[])
             msgTo.volume = 1;
             msgTo.volumeData = atof(argv[counterParam + 1]) / 100.0f;
             counterParam+=2;
+        } else if(strcmp(argv[counterParam], "speed") == 0){
+            if(counterParam + 1 == argc){
+                perror("Le parametre du volume est manquant | format: [xx](\%)"); 
+                return (EXIT_FAILURE);
+            } else if(!isdigit(*argv[counterParam + 1])){
+                perror("Le format attendu du parametre volume est un nombre décimal positif"); 
+                return (EXIT_FAILURE);
+            }
+            printf("Vitesse : %d%%\n", (int)atof(argv[counterParam + 1]));
+            fflush(stdout);
+            speed = atof(argv[counterParam + 1]) / 100.0;
+            counterParam+=2;
         } else if(strcmp(argv[counterParam], "mono") == 0){
             msgTo.mono = 1;
             counterParam++;
@@ -98,7 +110,7 @@ int main(int argc, char *argv[])
     FD_ZERO(&read_set);
     FD_SET(fileDescriptor, &read_set);
     timeout.tv_sec  = 0;
-    timeout.tv_usec = 500000;
+    timeout.tv_usec = 2000000;
 
     nb = select(fileDescriptor + 1, &read_set, NULL, NULL, &timeout);
     if(nb<0){
@@ -127,8 +139,7 @@ int main(int argc, char *argv[])
         sound.audio.channels = 1;
     }
 
-    printf("%d", sound.audio.channels);
-    wd = aud_writeinit(sound.audio.sample_rate, sound.audio.sample_size, sound.audio.channels);
+    wd = aud_writeinit(sound.audio.sample_rate * speed, sound.audio.sample_size, sound.audio.channels);
 
 
     erreurSendTo = sendto(fileDescriptor, &ack, sizeof(ack)+1, 0, (struct sockaddr*) &from, sizeof(struct sockaddr_in));
@@ -141,7 +152,7 @@ int main(int argc, char *argv[])
         FD_ZERO(&read_set);
         FD_SET(fileDescriptor, &read_set);
         timeout.tv_sec  = 0;
-        timeout.tv_usec = 500000;
+        timeout.tv_usec = 2000000;
 
         nb = select(fileDescriptor + 1, &read_set, NULL, NULL, &timeout);
         if(nb<0){
